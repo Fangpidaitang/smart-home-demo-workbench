@@ -41,32 +41,120 @@ box(room,'floor',0,-.12,0,10,.24,8,floorMat);box(room,'back wall',0,1.6,-4,10,3.
 box(room,'sofa base',-1.8,.45,1.3,3.2,.55,1.15,sofaMat);box(room,'sofa back',-1.8,1, .78,3.2,.85,.28,sofaMat);box(room,'coffee table',-1.6,.38,-.5,1.8,.12,.9,woodMat);box(room,'TV cabinet',-1.8,.35,-3.55,2.5,.55,.42,woodMat);box(room,'TV screen',-1.8,1.35,-3.72,2.2,1.25,.08,new THREE.MeshStandardMaterial({color:0x101820,emissive:0x14283c,emissiveIntensity:.5}));
 // dining
 box(room,'dining table',3.35,.8,-1.4,2.2,.16,1.25,woodMat);for(const x of [2.55,4.15])for(const z of [-2.1,-.7])box(room,'dining chair',x,.45,z,.48,.8,.48,sofaMat);
-// bedroom hint
-box(room,'bed frame',3.45,.35,2.65,2.5,.35,2.1,woodMat);box(room,'mattress',3.45,.62,2.65,2.4,.35,2, new THREE.MeshStandardMaterial({color:0xd9dce0}));
-// windows & curtain
-box(room,'window',-.2,1.9,-3.89,2.7,1.45,.05,new THREE.MeshStandardMaterial({color:0x52728c,metalness:.2,roughness:.2,emissive:0x1c3448,emissiveIntensity:.4}));
-const curtainMat=new THREE.MeshStandardMaterial({color:0x9aa7b4,roughness:.95,side:THREE.DoubleSide});const curtainL=box(room,'curtain_left',-1.15,1.85,-3.78,.55,2,.12,curtainMat);const curtainR=box(room,'curtain_right',.75,1.85,-3.78,.55,2,.12,curtainMat);
-const devices=[];function addLight(id,label,type,x,y,z,color=0xffe2b2){const g=new THREE.Group();g.position.set(x,y,z);g.name=id;const bulb=new THREE.Mesh(new THREE.SphereGeometry(.16,18,12),new THREE.MeshStandardMaterial({color:0xfff4dc,emissive:color,emissiveIntensity:1.2}));g.add(bulb);const ring=new THREE.Mesh(new THREE.TorusGeometry(.22,.035,8,24),new THREE.MeshStandardMaterial({color:0x91bfff,emissive:0x24558a,emissiveIntensity:.5}));ring.rotation.x=Math.PI/2;ring.position.y=-.17;g.add(ring);const light=new THREE.PointLight(color,1.8,5,2);light.position.y=-.12;light.castShadow=false;g.add(light);room.add(g);devices.push({id,label,type,obj:g,light,bulb,on:true,brightness:80,color:'#ffe2b2',room:type==='dining'?'餐厅':'客厅'});return g}
-addLight('main','客厅主灯','living',-1.5,2.95,-1.5);addLight('spot1','客厅筒灯 01','living',-3.5,2.95,-2.8);addLight('spot2','客厅筒灯 02','living',.1,2.95,-2.8);addLight('strip','客厅灯带','living',-1.8,2.9,2.8,0xffc77d);addLight('dininglight','餐厅吊灯','dining',3.3,2.7,-1.4,0xffd99a);addLight('bedlight','卧室灯','bed',3.4,2.8,2.5,0xffd5a0);
-// device markers
-const markerGroup=new THREE.Group();scene.add(markerGroup);devices.forEach(d=>{const c=document.createElement('canvas');c.width=128;c.height=48;const ctx=c.getContext('2d');ctx.fillStyle='#0d1b2acc';ctx.beginPath();ctx.roundRect(2,2,124,44,12);ctx.fill();ctx.strokeStyle='#75b5ff';ctx.stroke();ctx.fillStyle='#fff';ctx.font='bold 15px sans-serif';ctx.textAlign='center';ctx.fillText(d.label,64,29);const tex=new THREE.CanvasTexture(c);const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));spr.scale.set(1.2,.45,1);spr.position.copy(d.obj.position).add(new THREE.Vector3(0,.48,0));spr.userData.device=d;markerGroup.add(spr);d.marker=spr;});
-const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();let selected=null,showLabels=true,cut=false;
-function selectDevice(d){selected=d;renderDevices();renderControl();document.querySelector('#status').textContent='已选择：'+d.label;}
-function renderDevices(){const el=document.querySelector('#deviceList');el.innerHTML='';devices.forEach(d=>{const b=document.createElement('button');b.className='device'+(selected===d?' sel':'');b.innerHTML=`<span class="ico">${d.type==='dining'?'💡':d.type==='bed'?'🛏️':'◉'}</span>${d.label}<small>${d.room} · ${d.on?'开启':'关闭'}</small>`;b.onclick=()=>selectDevice(d);el.append(b)})}
-function renderControl(){const el=document.querySelector('#deviceControl');if(!selected){el.innerHTML='<div class="empty">选择一个设备查看控制选项</div>';return}const d=selected;el.innerHTML=`<div style="font-weight:700">${d.label}</div><div class="muted">${d.room} · ${d.type==='bed'?'卧室照明':d.type==='dining'?'餐厅照明':'客厅照明'}</div><div class="controlrow"><label>设备开关</label><button id="toggle" class="${d.on?'active':''}">${d.on?'已开启':'已关闭'}</button></div><div class="controlrow"><label>亮度</label><b id="brightVal">${d.brightness}%</b></div><input id="brightness" type="range" min="0" max="100" value="${d.brightness}" ${d.on?'':'disabled'}><div class="muted" style="margin-top:8px">调整后，三维空间中的灯光会同步变化。</div>`;el.querySelector('#toggle').onclick=()=>{d.on=!d.on;applyDevice(d);renderControl();renderDevices()};el.querySelector('#brightness').oninput=e=>{d.brightness=+e.target.value;el.querySelector('#brightVal').textContent=d.brightness+'%';applyDevice(d)};}
-function applyDevice(d){d.light.intensity=d.on?d.brightness/45:0;d.bulb.material.emissiveIntensity=d.on?.15+d.brightness/70:0;d.marker.material.opacity=d.on?1:.45;renderDevices()}
-function setCurtains(open){const target=open?1.35:.55;curtainL.position.x=THREE.MathUtils.lerp(curtainL.position.x,-1.35,.45);curtainR.position.x=THREE.MathUtils.lerp(curtainR.position.x,.95,.45);curtainL.scale.x=THREE.MathUtils.lerp(curtainL.scale.x,open?.5:1,.45);curtainR.scale.x=THREE.MathUtils.lerp(curtainR.scale.x,open?.5:1,.45);}
-function sceneMode(mode){const presets={welcome:{main:85,spot1:75,spot2:75,strip:45,dininglight:80,bedlight:0,curtain:true,desc:'会客：客厅与餐厅照明开启，窗帘打开。'},movie:{main:0,spot1:0,spot2:0,strip:10,dininglight:0,bedlight:0,curtain:false,desc:'观影：主灯关闭，灯带低亮，窗帘关闭。'},dining:{main:10,spot1:0,spot2:0,strip:10,dininglight:100,bedlight:0,curtain:true,desc:'就餐：餐厅吊灯重点照明，其他区域保持低亮。'},sleep:{main:0,spot1:0,spot2:0,strip:0,dininglight:0,bedlight:10,curtain:false,desc:'睡眠：主要照明关闭，窗帘关闭。'}};const p=presets[mode];devices.forEach(d=>{d.brightness=p[d.id]??0;d.on=d.brightness>0;applyDevice(d)});setCurtains(p.curtain);document.querySelector('#sceneDesc').textContent=p.desc;document.querySelector('#status').textContent='已切换场景：'+({welcome:'会客模式',movie:'观影模式',dining:'就餐模式',sleep:'睡眠模式'}[mode]);renderControl();}
-document.querySelectorAll('[data-scene]').forEach(b=>b.onclick=()=>sceneMode(b.dataset.scene));
-renderer.domElement.addEventListener('pointerdown',e=>{const rect=canvas.getBoundingClientRect();pointer.x=((e.clientX-rect.left)/rect.width)*2-1;pointer.y=-((e.clientY-rect.top)/rect.height)*2+1;ray.setFromCamera(pointer,camera);const hits=ray.intersectObjects(devices.map(d=>d.obj),true);if(hits.length){let o=hits[0].object;while(o&&!devices.some(d=>d.obj===o))o=o.parent;const d=devices.find(d=>d.obj===o);if(d)selectDevice(d)}});
-document.querySelector('#labelsBtn').onclick=e=>{showLabels=!showLabels;markerGroup.visible=showLabels;e.target.classList.toggle('active',showLabels);e.target.textContent='设备标记：'+(showLabels?'开':'关')};document.querySelector('#cutBtn').onclick=e=>{cut=!cut;room.children.forEach(o=>{if(o.name.includes('wall')||o.name==='partition')o.visible=!cut});e.target.classList.toggle('active',cut);e.target.textContent=cut?'恢复墙体':'空间剖切'};
-function view(v){if(v==='all'){camera.position.set(9,8,11);controls.target.set(0,1,0)}else if(v==='living'){camera.position.set(-2,5,7);controls.target.set(-1,1,0)}else if(v==='dining'){camera.position.set(7,5,4);controls.target.set(3,1,-1)}else{camera.position.set(7,5,8);controls.target.set(3,1,2.5)}controls.update();document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v))}document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>view(b.dataset.view));document.querySelector('#resetView').onclick=()=>view('all');document.querySelector('#demoReset').onclick=()=>{devices.forEach(d=>{d.on=true;d.brightness=80;applyDevice(d)});setCurtains(true);renderControl();renderDevices();document.querySelector('#sceneDesc').textContent='已恢复初始状态。'};document.querySelector('#fullBtn').onclick=()=>{if(stage.requestFullscreen)stage.requestFullscreen()};
-function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(stage);resize();function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();renderDevices();
-// Import files locally; preview only. No upload to server.
-const files={plan:[],renders:[]};function showFiles(kind){const target=document.querySelector(kind==='plan'?'#planFiles':'#renderFiles');target.innerHTML='';if(!files[kind].length){target.innerHTML='<div class="empty">还没有导入文件</div>';return}files[kind].forEach((f,i)=>{const row=document.createElement('div');row.className='file';if(f.url&&f.type.startsWith('image/')){const img=document.createElement('img');img.className='thumb';img.src=f.url;row.append(img)}else{const ico=document.createElement('div');ico.className='thumb';ico.style.display='grid';ico.style.placeItems='center';ico.textContent='PDF';row.append(ico)}const name=document.createElement('span');name.className='name';name.textContent=f.name;row.append(name);const del=document.createElement('button');del.textContent='移除';del.onclick=()=>{files[kind].splice(i,1);showFiles(kind)};row.append(del);target.append(row)})}
-document.querySelector('#planInput').onchange=e=>{files.plan=[...e.target.files].map(f=>({name:f.name,type:f.type,url:f.type.startsWith('image/')?URL.createObjectURL(f):null}));showFiles('plan')};document.querySelector('#renderInput').onchange=e=>{files.renders.push(...[...e.target.files].map(f=>({name:f.name,type:f.type,url:URL.createObjectURL(f)})));showFiles('renders')};
-let mode='plan';function setMode(m){mode=m;document.querySelector('#modePlan').classList.toggle('active',m==='plan');document.querySelector('#modeRender').classList.toggle('active',m==='render');document.querySelector('#renderUpload').style.display=m==='render'?'block':'none';document.querySelector('#modeDesc').textContent=m==='plan'?'先导入户型图，作为空间结构依据。':'导入户型图，再添加各房间已确认的装修效果图。'}document.querySelector('#modePlan').onclick=()=>setMode('plan');document.querySelector('#modeRender').onclick=()=>setMode('render');
-document.querySelector('#generateBtn').onclick=()=>{const title=document.querySelector('#projectName').value||'住宅智能演示方案';document.querySelector('#projectTitle').textContent=title+' · 空间预览';document.querySelector('#modelTag').textContent='演示样板空间';document.querySelector('#status').textContent=files.plan.length?'已读取户型图文件 · 当前展示样板空间':'尚未导入户型图 · 当前展示样板空间';alert(files.plan.length?'已读取户型图文件并建立演示项目。注意：当前版本尚未自动解析图纸生成对应户型，画面仍为样板空间。':'已建立演示项目。请先在左侧导入户型图；当前空间为样板，不代表客户真实户型。')};
-document.querySelector('#newBtn').onclick=()=>{document.querySelector('#projectName').value='新住宅智能演示方案';document.querySelector('#area').value=180;files.plan=[];files.renders=[];showFiles('plan');showFiles('renders');setMode('plan');document.querySelector('#projectTitle').textContent='客餐厅 · 智能空间预览'};
-document.querySelector('#exportBtn').onclick=()=>{const data={project:document.querySelector('#projectName').value,area:document.querySelector('#area').value,style:document.querySelector('#style').value,mode,devices:devices.map(d=>({id:d.id,name:d.label,room:d.room,on:d.on,brightness:d.brightness})),note:'纯模拟演示配置，不包含真实设备连接。'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='全屋智能演示方案.json';a.click();URL.revokeObjectURL(a.href)};
+// bedroom hint// Import files locally; preview only.
+const files = { plan: [], renders: [] };
+
+function isImageFile(f) {
+  const name = (f.name || '').toLowerCase();
+  return (f.type && f.type.startsWith('image/')) ||
+    /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(name);
+}
+
+function makeFileItem(f) {
+  const isImg = isImageFile(f);
+  return {
+    name: f.name || '未命名文件',
+    type: f.type || (isImg ? 'image/unknown' : 'application/pdf'),
+    url: isImg ? URL.createObjectURL(f) : null,
+    size: f.size || 0
+  };
+}
+
+function showFiles(kind) {
+  const target = document.querySelector(
+    kind === 'plan' ? '#planFiles' : '#renderFiles'
+  );
+
+  target.innerHTML = '';
+
+  if (!files[kind].length) {
+    target.innerHTML = '<div class="empty">还没有导入文件</div>';
+    return;
+  }
+
+  files[kind].forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'file';
+
+    if (f.url) {
+      const img = document.createElement('img');
+      img.className = 'thumb';
+      img.alt = '图片预览';
+      img.src = f.url;
+
+      img.onerror = () => {
+        img.remove();
+        const err = document.createElement('span');
+        err.className = 'muted';
+        err.textContent = '图片无法预览';
+        row.prepend(err);
+      };
+
+      row.append(img);
+    } else {
+      const ico = document.createElement('div');
+      ico.className = 'thumb';
+      ico.style.display = 'grid';
+      ico.style.placeItems = 'center';
+      ico.textContent = 'PDF';
+      row.append(ico);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = f.name;
+    name.title = f.name;
+    row.append(name);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = '移除';
+
+    del.onclick = () => {
+      if (f.url) URL.revokeObjectURL(f.url);
+      files[kind].splice(i, 1);
+      showFiles(kind);
+    };
+
+    row.append(del);
+    target.append(row);
+  });
+}
+
+function bindFileInput(id, kind) {
+  const input = document.querySelector(id);
+
+  input.addEventListener('change', e => {
+    const picked = Array.from(e.target.files || []);
+    if (!picked.length) return;
+
+    const valid = picked.filter(f =>
+      isImageFile(f) || /\.pdf$/i.test(f.name || '')
+    );
+
+    if (kind === 'plan') {
+      files.plan.forEach(f => {
+        if (f.url) URL.revokeObjectURL(f.url);
+      });
+
+      files.plan = valid.slice(0, 1).map(makeFileItem);
+    } else {
+      files.renders.push(...valid.map(makeFileItem));
+    }
+
+    showFiles(kind);
+
+    const rejected = picked.length - valid.length;
+
+    if (rejected) {
+      alert('有 ' + rejected +
+        ' 个文件格式不支持，请选择 PNG、JPG、WEBP 或 PDF。');
+    }
+
+    input.value = '';
+  });
+}
+
+bindFileInput('#planInput', 'plan');
+bindFileInput('#renderInput', 'renders');
 </script></body></html>
